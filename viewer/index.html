@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Farnsworth House — IFC4 Viewer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Live 3D viewer for the Farnsworth House IFC4 LOD 350 reference model.">
+<meta property="og:title" content="Farnsworth House — IFC4 Viewer">
+<meta property="og:description" content="Mies van der Rohe, 1951. Type-bound, gridded, curtain-walled IFC4 BIM model.">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0 }
+  html, body { width: 100%; height: 100%; background: #1c1f24; color: #e6e6e6;
+               font-family: 'Hiragino Sans','Yu Gothic','Inter',sans-serif;
+               overflow: hidden; -webkit-font-smoothing: antialiased }
+  #viewer { position: fixed; inset: 0 }
+  .topbar { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+            display: flex; align-items: center; gap: 14px;
+            padding: 10px 16px; background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px }
+  .brand { font-weight: 700; letter-spacing: 0.05em; color: #5cf }
+  .title { flex: 1; color: #ccc; font-size: 11px; letter-spacing: 0.04em }
+  .topbar a { color: #bbb; text-decoration: none; font-size: 11px;
+              border: 1px solid rgba(255,255,255,0.15);
+              padding: 5px 10px; border-radius: 4px; transition: 0.15s }
+  .topbar a:hover { color: #5cf; border-color: #5cf }
+  #status { position: fixed; bottom: 14px; left: 14px; z-index: 18;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+            padding: 12px 16px; font-size: 11px; color: #ccc; line-height: 1.6;
+            max-width: 320px }
+  #status .nm { color: #5cf; font-size: 13px; font-weight: 600;
+                margin-bottom: 4px; letter-spacing: 0.02em }
+  #status .progress { color: #999 }
+  #status code { font-family: 'JetBrains Mono','SF Mono',monospace;
+                 background: #2a2f37; padding: 2px 5px; border-radius: 3px }
+  #legend { position: fixed; top: 60px; right: 14px; z-index: 18;
+            background: rgba(0,0,0,0.55); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 6px; padding: 10px 14px; font-size: 10px;
+            color: #ccc; min-width: 170px; line-height: 1.7 }
+  #legend .h { color: #5cf; font-size: 9px; letter-spacing: 0.22em;
+               text-transform: uppercase; margin-bottom: 6px; font-weight: 700 }
+  #legend label { display: flex; align-items: center; gap: 8px; cursor: pointer;
+                  user-select: none }
+  #legend input { accent-color: #5cf }
+  #legend .sw { width: 11px; height: 11px; border-radius: 2px;
+                border: 1px solid rgba(255,255,255,0.1); display: inline-block }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0;
+            text-align: center; padding: 6px;
+            font-size: 10px; color: #666; pointer-events: none }
+  .footer a { color: #5cf; pointer-events: auto; text-decoration: none }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three":      "https://unpkg.com/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.1/examples/jsm/",
+    "web-ifc":    "https://unpkg.com/web-ifc@0.0.66/web-ifc-api.js"
+  }
+}
+</script>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">FARNSWORTH IFC4</span>
+  <span class="title">Mies van der Rohe, 1951 — LOD 350 reference model</span>
+  <a href="./farnsworth_house_v2.ifc" download>↓ IFC4 (122 KB)</a>
+  <a href="https://github.com/yukihamada/farnsworth-ifc" target="_blank">GitHub ↗</a>
+</div>
+
+<div id="viewer"></div>
+
+<div id="status">
+  <div class="nm">Loading model …</div>
+  <div class="progress">Initializing web-ifc WASM …</div>
+</div>
+
+<div id="legend">
+  <div class="h">Layers</div>
+  <label><input type="checkbox" id="lyr-IfcSlab" checked><span class="sw" style="background:#dcd2bf"></span> Slab / Roof</label>
+  <label><input type="checkbox" id="lyr-IfcColumn" checked><span class="sw" style="background:#fafaf7"></span> Column (W8x48)</label>
+  <label><input type="checkbox" id="lyr-IfcCurtainWall" checked><span class="sw" style="background:#a8c9d8"></span> Curtain Wall</label>
+  <label><input type="checkbox" id="lyr-IfcMember" checked><span class="sw" style="background:#b8bcc0"></span> Mullion</label>
+  <label><input type="checkbox" id="lyr-IfcPlate" checked><span class="sw" style="background:#a8c9d8"></span> Glass Panel</label>
+  <label><input type="checkbox" id="lyr-IfcDoor" checked><span class="sw" style="background:#888a8c"></span> Door</label>
+  <label><input type="checkbox" id="lyr-IfcStair" checked><span class="sw" style="background:#cbb98c"></span> Stair</label>
+  <label><input type="checkbox" id="lyr-IfcRailing" checked><span class="sw" style="background:#8a8a85"></span> Railing</label>
+  <label><input type="checkbox" id="lyr-IfcSpace"><span class="sw" style="background:#2a4a8c"></span> Space (hidden)</label>
+  <label><input type="checkbox" id="lyr-Ground"><span class="sw" style="background:#4d6633"></span> Ground</label>
+</div>
+
+<div class="footer">
+  Self-hosted IFC viewer using <a href="https://ifcjs.github.io/info/" target="_blank">web-ifc</a> (WASM) + three.js — full IFC4 support including IfcCurtainWall, IfcMember, IfcGrid, IfcSpaceBoundary.
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as WebIFC from 'web-ifc';
+
+const status = document.getElementById('status');
+function setStatus(name, progress) {
+  status.querySelector('.nm').textContent = name;
+  status.querySelector('.progress').innerHTML = progress;
+}
+
+// ----- Three.js scene -----
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('viewer').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#1c1f24');
+scene.fog = new THREE.Fog('#1c1f24', 60, 200);
+
+const camera = new THREE.PerspectiveCamera(
+  45, window.innerWidth / window.innerHeight, 0.1, 2000
+);
+camera.position.set(28, 16, 22);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+// Lighting
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(40, 50, 30);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 200;
+sun.shadow.camera.left = -50; sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50;   sun.shadow.camera.bottom = -50;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.HemisphereLight(0xbcdcff, 0x556633, 0.4));
+
+// Ground / sky
+const grid = new THREE.GridHelper(120, 60, 0x444444, 0x2a2e35);
+grid.position.y = -0.01;
+scene.add(grid);
+
+// ----- Load IFC -----
+const ifcAPI = new WebIFC.IfcAPI();
+ifcAPI.SetWasmPath('https://unpkg.com/web-ifc@0.0.66/');
+setStatus('Loading model …', 'Initializing WASM …');
+await ifcAPI.Init();
+
+setStatus('Loading model …', 'Fetching <code>farnsworth_house_v2.ifc</code>');
+const ifcUrl = new URL('./farnsworth_house_v2.ifc', location.href);
+const buf = await fetch(ifcUrl).then(r => r.arrayBuffer());
+const bytes = new Uint8Array(buf);
+console.log(`IFC file: ${bytes.length} bytes`);
+
+setStatus('Loading model …', 'Parsing IFC …');
+const modelID = ifcAPI.OpenModel(bytes);
+console.log('modelID:', modelID);
+
+setStatus('Loading model …', 'Extracting geometry …');
+
+// ----- Build typed groups -----
+const TYPE_COLOURS = {
+  IfcSlab:        { color: 0xdcd2bf, opacity: 1.0 },
+  IfcRoof:        { color: 0x9c8b73, opacity: 1.0 },
+  IfcColumn:      { color: 0xfafaf7, opacity: 1.0 },
+  IfcCurtainWall: { color: 0xa8c9d8, opacity: 0.4 },
+  IfcMember:      { color: 0xb8bcc0, opacity: 1.0 },
+  IfcPlate:       { color: 0xa8c9d8, opacity: 0.35 },
+  IfcDoor:        { color: 0x888a8c, opacity: 0.85 },
+  IfcStair:       { color: 0xcbb98c, opacity: 1.0 },
+  IfcStairFlight: { color: 0xcbb98c, opacity: 1.0 },
+  IfcRailing:     { color: 0x8a8a85, opacity: 1.0 },
+  IfcSpace:       { color: 0x2a4a8c, opacity: 0.10, visible: false },
+  IfcOpeningElement: { color: 0xff0000, opacity: 0.0, visible: false },
+  Ground:         { color: 0x4d6633, opacity: 1.0, visible: false },
+};
+const groups = {};
+function groupFor(typeName) {
+  if (!groups[typeName]) {
+    groups[typeName] = new THREE.Group();
+    groups[typeName].name = typeName;
+    scene.add(groups[typeName]);
+  }
+  return groups[typeName];
+}
+
+// Get geometry for every product
+const allLines = ifcAPI.GetAllLines(modelID);
+console.log(`Total lines: ${allLines.size()}`);
+
+const productExpressIDs = new Set();
+for (const cls of [
+  WebIFC.IFCSLAB, WebIFC.IFCROOF, WebIFC.IFCCOLUMN,
+  WebIFC.IFCCURTAINWALL, WebIFC.IFCMEMBER, WebIFC.IFCPLATE,
+  WebIFC.IFCDOOR, WebIFC.IFCSTAIR, WebIFC.IFCSTAIRFLIGHT,
+  WebIFC.IFCRAILING, WebIFC.IFCSPACE,
+  WebIFC.IFCWALL, WebIFC.IFCWINDOW, WebIFC.IFCBEAM,
+]) {
+  if (!cls) continue;
+  const ids = ifcAPI.GetLineIDsWithType(modelID, cls);
+  for (let i = 0; i < ids.size(); i++) productExpressIDs.add(ids.get(i));
+}
+console.log(`Product express IDs to render: ${productExpressIDs.size}`);
+
+// ifcAPI.StreamAllMeshes streams meshes for each product
+let count = 0;
+let totalVerts = 0;
+ifcAPI.StreamAllMeshes(modelID, (flatMesh) => {
+  const expressID = flatMesh.expressID;
+  const placedGeoms = flatMesh.geometries;
+
+  // Resolve type
+  const line = ifcAPI.GetLine(modelID, expressID, false);
+  const typeCode = line.type;
+  let typeName = ifcAPI.GetNameFromTypeCode(typeCode) || 'IfcProduct';
+  const ifcName = line.Name?.value || '';
+  // Send the site terrain into its own "Ground" group so it can be toggled
+  // and is excluded from the camera-fit bbox.
+  if (typeName === 'IfcSlab' && /ground|meadow/i.test(ifcName)) {
+    typeName = 'Ground';
+  }
+
+  for (let j = 0; j < placedGeoms.size(); j++) {
+    const placed = placedGeoms.get(j);
+    const ifcGeom = ifcAPI.GetGeometry(modelID, placed.geometryExpressID);
+
+    const verts = ifcAPI.GetVertexArray(ifcGeom.GetVertexData(), ifcGeom.GetVertexDataSize());
+    const indices = ifcAPI.GetIndexArray(ifcGeom.GetIndexData(), ifcGeom.GetIndexDataSize());
+
+    // verts: interleaved [x,y,z, nx,ny,nz] per vertex
+    const nVerts = verts.length / 6;
+    const positions = new Float32Array(nVerts * 3);
+    const normals   = new Float32Array(nVerts * 3);
+    for (let k = 0; k < nVerts; k++) {
+      positions[k*3]   = verts[k*6];
+      positions[k*3+1] = verts[k*6+1];
+      positions[k*3+2] = verts[k*6+2];
+      normals[k*3]     = verts[k*6+3];
+      normals[k*3+1]   = verts[k*6+4];
+      normals[k*3+2]   = verts[k*6+5];
+    }
+    totalVerts += nVerts;
+
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    bg.setAttribute('normal',   new THREE.BufferAttribute(normals, 3));
+    bg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+
+    const colourSpec = TYPE_COLOURS[typeName] ||
+                       { color: 0xb0b8c0, opacity: 1.0 };
+    const mat = new THREE.MeshStandardMaterial({
+      color: colourSpec.color,
+      transparent: colourSpec.opacity < 1,
+      opacity: colourSpec.opacity,
+      side: THREE.DoubleSide,
+      metalness: typeName === 'IfcMember' ? 0.7 : 0.05,
+      roughness: typeName === 'IfcPlate' ? 0.05 : 0.6,
+    });
+    const mesh = new THREE.Mesh(bg, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // IFC matrix is column-major in flat array; three uses column-major too
+    const m4 = new THREE.Matrix4();
+    m4.fromArray(placed.flatTransformation);
+    mesh.applyMatrix4(m4);
+
+    // Convert from IFC's Z-up to three's Y-up
+    // (we'll do this once on the parent group instead)
+
+    mesh.userData = { ifcType: typeName, expressID };
+    if (colourSpec.visible === false) mesh.visible = false;
+
+    groupFor(typeName).add(mesh);
+    count++;
+    ifcGeom.delete?.();
+  }
+});
+
+ifcAPI.CloseModel(modelID);
+
+// Convert Z-up (IFC) to Y-up (three)
+const root = new THREE.Group();
+for (const k of Object.keys(groups)) root.add(groups[k]);
+root.rotation.x = -Math.PI / 2;
+scene.add(root);
+
+console.log(`Rendered ${count} meshes, ${totalVerts} vertices total`);
+
+// ----- Frame the model (excluding the huge ground plate) -----
+const bbox = new THREE.Box3();
+for (const k of Object.keys(groups)) {
+  if (k === 'Ground' || k === 'IfcSpace' || k === 'IfcOpeningElement') continue;
+  bbox.expandByObject(groups[k]);
+}
+if (bbox.isEmpty()) bbox.setFromObject(root);
+const size = bbox.getSize(new THREE.Vector3());
+const center = bbox.getCenter(new THREE.Vector3());
+controls.target.copy(center);
+const maxDim = Math.max(size.x, size.y, size.z);
+const dist = maxDim * 1.6;
+camera.position.set(
+  center.x + dist * 0.85,
+  center.y + dist * 0.55,
+  center.z + dist * 1.10,
+);
+camera.far = Math.max(camera.far, dist * 8);
+camera.updateProjectionMatrix();
+controls.update();
+
+setStatus(
+  'Farnsworth House',
+  `Mies van der Rohe, 1951<br>` +
+  `${count} meshes · ${totalVerts.toLocaleString()} vertices<br>` +
+  `<code>${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} m</code>`
+);
+
+// ----- Layer toggles -----
+const layerNames = Object.keys(TYPE_COLOURS);
+for (const t of layerNames) {
+  const cb = document.getElementById('lyr-' + t);
+  if (!cb) continue;
+  cb.addEventListener('change', () => {
+    if (groups[t]) groups[t].visible = cb.checked;
+  });
+  if (TYPE_COLOURS[t].visible === false) {
+    cb.checked = false;
+    if (groups[t]) groups[t].visible = false;
+  }
+}
+
+// ----- Render loop -----
+function render() {
+  requestAnimationFrame(render);
+  controls.update();
+  renderer.render(scene, camera);
+}
+render();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
