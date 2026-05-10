@@ -628,6 +628,15 @@ def build():
         ("Rigid Insulation", "insulation"),
         ("Topsoil/Meadow", "soil"),
         ("White Oak", "wood"),
+        ("Primavera Wood Veneer", "wood"),  # iconic blonde tropical hardwood
+        ("Hearth Stone (Roman travertine)", "stone"),
+        ("Black Leather (cowhide)", "fabric"),
+        ("White Italian Marble", "stone"),
+        ("Linen Cream", "fabric"),
+        ("Vitreous Ceramic", "ceramic"),
+        ("Brushed Stainless 304", "steel"),
+        ("Foliage", "other"),
+        ("Tree Trunk Bark", "wood"),
     ]:
         materials[n] = ifcopenshell.api.material.add_material(f, name=n, category=cat)
 
@@ -641,6 +650,15 @@ def build():
         "Rigid Insulation": ((1.0, 0.95, 0.62), 0.0),
         "Topsoil/Meadow": ((0.45, 0.55, 0.30), 0.0),
         "White Oak": ((0.78, 0.62, 0.38), 0.0),
+        "Primavera Wood Veneer": ((0.85, 0.66, 0.42), 0.0),
+        "Hearth Stone (Roman travertine)": ((0.62, 0.58, 0.50), 0.0),
+        "Black Leather (cowhide)": ((0.10, 0.10, 0.10), 0.0),
+        "White Italian Marble": ((0.93, 0.91, 0.86), 0.0),
+        "Linen Cream": ((0.91, 0.86, 0.78), 0.0),
+        "Vitreous Ceramic": ((0.97, 0.97, 0.96), 0.0),
+        "Brushed Stainless 304": ((0.78, 0.79, 0.81), 0.0),
+        "Foliage": ((0.30, 0.50, 0.25), 0.2),
+        "Tree Trunk Bark": ((0.36, 0.28, 0.20), 0.0),
     }
     for n, (rgb, t) in style_map.items():
         attach_style(f, materials[n], make_style(f, n, rgb, t), body)
@@ -685,6 +703,21 @@ def build():
     )
     types["railing"] = make_type("IfcRailingType", "STAINLESS-RAILING", "GUARDRAIL")
     types["space"] = make_type("IfcSpaceType", "PAVILION-LIVING", "SPACE")
+    # LOD 400 — interior types
+    types["furn_core"] = make_type("IfcFurnishingElementType", "PRIMAVERA-CORE", None)
+    types["furn_chair"] = make_type("IfcFurnishingElementType", "MIES-BARCELONA-CHAIR", None)
+    types["furn_diningchair"] = make_type("IfcFurnishingElementType", "MIES-BRNO-CHAIR", None)
+    types["furn_dining_table"] = make_type("IfcFurnishingElementType", "MIES-DINING-TABLE", None)
+    types["furn_coffee_table"] = make_type("IfcFurnishingElementType", "MIES-COFFEE-TABLE", None)
+    types["furn_bed"] = make_type("IfcFurnishingElementType", "BED-DAYBED", None)
+    types["furn_wardrobe"] = make_type("IfcFurnishingElementType", "WARDROBE", None)
+    types["furn_kitchen"] = make_type("IfcFurnishingElementType", "KITCHEN-COUNTER", None)
+    types["furn_appl"] = make_type("IfcFurnishingElementType", "STAINLESS-APPLIANCE", None)
+    types["furn_fireplace"] = make_type("IfcFurnishingElementType", "FIREPLACE-HEARTH", None)
+    types["sani_toilet"] = make_type("IfcSanitaryTerminalType", "WC-WALL-HUNG", "TOILETPAN")
+    types["sani_sink"] = make_type("IfcSanitaryTerminalType", "WALL-HUNG-SINK", "WASHHANDBASIN")
+    types["sani_shower"] = make_type("IfcSanitaryTerminalType", "SHOWER-STALL", "SHOWER")
+    types["geo_tree"] = make_type("IfcGeographicElementType", "TREE-DECIDUOUS", None)
 
     # Type → material associations
     assign_layer_set(
@@ -715,6 +748,21 @@ def build():
     assign_material_simple(
         f, owner_history, [types["railing"]], materials["Stainless Steel"],
     )
+    # Interior type → material
+    assign_material_simple(f, owner_history, [types["furn_core"]], materials["Primavera Wood Veneer"])
+    assign_material_simple(f, owner_history, [types["furn_chair"]], materials["Black Leather (cowhide)"])
+    assign_material_simple(f, owner_history, [types["furn_diningchair"]], materials["Black Leather (cowhide)"])
+    assign_material_simple(f, owner_history, [types["furn_dining_table"]], materials["White Italian Marble"])
+    assign_material_simple(f, owner_history, [types["furn_coffee_table"]], materials["Float Glass 25mm"])
+    assign_material_simple(f, owner_history, [types["furn_bed"]], materials["Linen Cream"])
+    assign_material_simple(f, owner_history, [types["furn_wardrobe"]], materials["Primavera Wood Veneer"])
+    assign_material_simple(f, owner_history, [types["furn_kitchen"]], materials["Brushed Stainless 304"])
+    assign_material_simple(f, owner_history, [types["furn_appl"]], materials["Brushed Stainless 304"])
+    assign_material_simple(f, owner_history, [types["furn_fireplace"]], materials["Hearth Stone (Roman travertine)"])
+    assign_material_simple(f, owner_history, [types["sani_toilet"]], materials["Vitreous Ceramic"])
+    assign_material_simple(f, owner_history, [types["sani_sink"]], materials["Vitreous Ceramic"])
+    assign_material_simple(f, owner_history, [types["sani_shower"]], materials["Float Glass 25mm"])
+    assign_material_simple(f, owner_history, [types["geo_tree"]], materials["Foliage"])
 
     # ---- Structural grid (Mies's iconic 4×2 grid) ----
     long_xs = [COL_CANTI + i * COL_BAY for i in range(4)]      # 1.68, 8.39, 15.10, 21.81
@@ -868,6 +916,17 @@ def build():
                    (MAIN_WID - STAIR_WIDTH) / 2.0,
                    0),
         n_risers=STAIR_RISERS_TM,
+    )
+
+    # ---- LOD 400 interior: primavera core, kitchen, fireplace, furniture ----
+    interior_elements = []
+    interior_elements += _make_interior(
+        f, body, owner_history, storeys["Main Floor"], types,
+    )
+
+    # ---- Site context: trees ----
+    interior_elements += _make_trees(
+        f, body, owner_history, storeys["Grade"], types,
     )
 
     # ---- Pavilion space ----
@@ -1399,6 +1458,247 @@ def make_space(f, body, owner_history, storey, space_type, *, local_xyz, size):
         "HandicapAccessible": False,
     })
     return space
+
+
+def _make_simple_box(
+    f, body, owner_history, storey, *,
+    ifc_class, name, predefined_type, location, size,
+    type_relation=None, pset_name=None, pset_props=None,
+):
+    """Generic LOD-400 furnishing/fixture/site element placed as a box."""
+    el = ifcopenshell.api.root.create_entity(
+        f, ifc_class=ifc_class, name=name, predefined_type=predefined_type,
+    )
+    el.ObjectPlacement = make_lp(
+        f, location=location, parent_placement=storey.ObjectPlacement,
+    )
+    w, d, h = size
+    el.Representation = box_repr(f, body, w, d, h)
+    ifcopenshell.api.spatial.assign_container(
+        f, products=[el], relating_structure=storey
+    )
+    if type_relation is not None:
+        ifcopenshell.api.type.assign_type(
+            f, related_objects=[el], relating_type=type_relation
+        )
+    add_qto(f, owner_history, el, "Qto_BodyGeometryValidation", [
+        ("IfcQuantityLength", "Width", w, "LengthValue"),
+        ("IfcQuantityLength", "Depth", d, "LengthValue"),
+        ("IfcQuantityLength", "Height", h, "LengthValue"),
+        ("IfcQuantityVolume", "Volume", w * d * h, "VolumeValue"),
+    ])
+    if pset_name:
+        add_pset(f, el, pset_name, pset_props or {"Reference": name})
+    else:
+        add_pset(f, el, "Pset_FurnitureTypeCommon", {"Reference": name})
+    return el
+
+
+def _make_interior(f, body, owner_history, storey_main, types):
+    """Build the iconic Mies primavera core + kitchen + fireplace + furniture
+    inside the pavilion. All coordinates are local to Main Floor storey
+    (so Z=0 = main floor surface)."""
+    items = []
+    F = lambda **kw: _make_simple_box(
+        f, body, owner_history, storey_main, ifc_class="IfcFurnishingElement", **kw,
+    )
+    S = lambda **kw: _make_simple_box(
+        f, body, owner_history, storey_main, ifc_class="IfcSanitaryTerminal", **kw,
+    )
+
+    # ----- Primavera wood core (the family-room-sized box that contains
+    # kitchen, bath, mech, and sleeping nook screen) ---------------------
+    items.append(F(
+        name="Primavera Wood Core",
+        predefined_type=None,
+        type_relation=types["furn_core"],
+        location=(4.50, 3.20, 0.0),
+        size=(5.50, 2.30, 2.40),
+        pset_name="Pset_FurnitureTypeCommon",
+        pset_props={"Reference": "Primavera-veneered freestanding core volume"},
+    ))
+
+    # ----- Stone fireplace hearth + chimney -----------------------------
+    items.append(F(
+        name="Fireplace Hearth (Roman travertine)",
+        predefined_type=None,
+        type_relation=types["furn_fireplace"],
+        location=(6.00, 0.40, 0.0),
+        size=(3.00, 0.80, 0.45),
+    ))
+    items.append(F(
+        name="Fireplace Chimney Block",
+        predefined_type=None,
+        type_relation=types["furn_fireplace"],
+        location=(7.00, 1.00, 0.45),
+        size=(1.00, 0.40, 1.95),
+    ))
+
+    # ----- Kitchen counter (north of core) ------------------------------
+    items.append(F(
+        name="Kitchen Counter (stainless + primavera)",
+        predefined_type=None,
+        type_relation=types["furn_kitchen"],
+        location=(4.50, 5.55, 0.0),
+        size=(5.50, 0.65, 0.85),
+    ))
+    items.append(F(
+        name="Refrigerator",
+        predefined_type=None,
+        type_relation=types["furn_appl"],
+        location=(9.30, 5.55, 0.0),
+        size=(0.65, 0.65, 1.80),
+    ))
+    items.append(F(
+        name="Cooktop / Range",
+        predefined_type=None,
+        type_relation=types["furn_appl"],
+        location=(7.00, 5.55, 0.85),
+        size=(0.80, 0.65, 0.10),
+    ))
+    items.append(F(
+        name="Range Hood",
+        predefined_type=None,
+        type_relation=types["furn_appl"],
+        location=(7.00, 5.65, 1.50),
+        size=(0.80, 0.45, 0.30),
+    ))
+
+    # ----- Bedroom (west of core, screened by wardrobe) -----------------
+    items.append(F(
+        name="Bed (Mies design, daybed)",
+        predefined_type=None,
+        type_relation=types["furn_bed"],
+        location=(2.10, 4.20, 0.10),
+        size=(2.00, 1.60, 0.45),
+    ))
+    items.append(F(
+        name="Wardrobe (primavera screen)",
+        predefined_type=None,
+        type_relation=types["furn_wardrobe"],
+        location=(2.00, 1.40, 0.0),
+        size=(2.20, 0.55, 1.80),
+    ))
+    items.append(F(
+        name="Nightstand",
+        predefined_type=None,
+        type_relation=types["furn_wardrobe"],
+        location=(4.20, 6.00, 0.0),
+        size=(0.55, 0.40, 0.55),
+    ))
+
+    # ----- Dining (between core and east end) ---------------------------
+    items.append(F(
+        name="Mies Dining Table (Italian marble)",
+        predefined_type=None,
+        type_relation=types["furn_dining_table"],
+        location=(11.00, 3.40, 0.0),
+        size=(1.80, 0.95, 0.74),
+    ))
+    for i, (cx, cy) in enumerate([
+        (10.85, 2.55), (10.85, 4.55),
+        (12.50, 2.55), (12.50, 4.55),
+    ]):
+        items.append(F(
+            name=f"Mies Brno Dining Chair {i + 1}",
+            predefined_type=None,
+            type_relation=types["furn_diningchair"],
+            location=(cx, cy, 0.0),
+            size=(0.55, 0.55, 0.85),
+        ))
+
+    # ----- Living room (east end, around coffee table) -----------------
+    for i, (cx, cy, w, d) in enumerate([
+        (15.50, 1.40, 0.78, 0.78),
+        (15.50, 5.20, 0.78, 0.78),
+        (18.50, 1.40, 0.78, 0.78),
+        (18.50, 5.20, 0.78, 0.78),
+    ]):
+        items.append(F(
+            name=f"Barcelona Chair {i + 1}",
+            predefined_type=None,
+            type_relation=types["furn_chair"],
+            location=(cx, cy, 0.0),
+            size=(w, d, 0.76),
+        ))
+    items.append(F(
+        name="Mies Coffee Table (glass)",
+        predefined_type=None,
+        type_relation=types["furn_coffee_table"],
+        location=(16.40, 3.20, 0.0),
+        size=(1.30, 1.10, 0.42),
+    ))
+
+    # ----- Bathroom inside the core (south side) ------------------------
+    items.append(S(
+        name="Wall-hung WC",
+        predefined_type="TOILETPAN",
+        type_relation=types["sani_toilet"],
+        location=(5.00, 3.40, 0.0),
+        size=(0.65, 0.40, 0.42),
+        pset_name="Pset_SanitaryTerminalTypeToiletPan",
+        pset_props={"Reference": "Wall-hung WC"},
+    ))
+    items.append(S(
+        name="Wall-hung Sink",
+        predefined_type="WASHHANDBASIN",
+        type_relation=types["sani_sink"],
+        location=(5.00, 4.10, 0.85),
+        size=(0.55, 0.40, 0.20),
+        pset_name="Pset_SanitaryTerminalTypeWashHandBasin",
+        pset_props={"Reference": "Wall-hung lavatory"},
+    ))
+    items.append(S(
+        name="Shower Stall",
+        predefined_type="SHOWER",
+        type_relation=types["sani_shower"],
+        location=(8.50, 3.40, 0.0),
+        size=(1.00, 1.00, 2.10),
+        pset_name="Pset_SanitaryTerminalTypeShower",
+        pset_props={"Reference": "Glass shower stall"},
+    ))
+
+    return items
+
+
+def _make_trees(f, body, owner_history, storey_grade, types):
+    """A few black-locust / black-walnut trees around the site for context."""
+    items = []
+    # Each tree = trunk + foliage (simplified)
+    tree_positions = [
+        (-30, -8, "trunk1"),
+        (-25, 18, "trunk2"),
+        (15, -8, "trunk3"),
+        (28, 14, "trunk4"),
+        (-12, 22, "trunk5"),
+        (10, 22, "trunk6"),
+    ]
+    for tx, ty, tag in tree_positions:
+        # Trunk
+        items.append(_make_simple_box(
+            f, body, owner_history, storey_grade,
+            ifc_class="IfcGeographicElement",
+            name=f"Tree Trunk {tag}",
+            predefined_type=None,
+            type_relation=types["geo_tree"],
+            location=(tx - 0.20, ty - 0.20, 0.0),
+            size=(0.40, 0.40, 4.50),
+            pset_name="Pset_SiteCommon",
+            pset_props={"Reference": "Black walnut trunk"},
+        ))
+        # Canopy
+        items.append(_make_simple_box(
+            f, body, owner_history, storey_grade,
+            ifc_class="IfcGeographicElement",
+            name=f"Tree Canopy {tag}",
+            predefined_type=None,
+            type_relation=types["geo_tree"],
+            location=(tx - 2.0, ty - 2.0, 4.0),
+            size=(4.00, 4.00, 4.00),
+            pset_name="Pset_SiteCommon",
+            pset_props={"Reference": "Black walnut canopy"},
+        ))
+    return items
 
 
 def make_space_boundary(f, owner_history, space, related_element, side, *,

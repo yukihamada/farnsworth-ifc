@@ -86,6 +86,9 @@
   <label><input type="checkbox" id="lyr-IfcDoor" checked><span class="sw" style="background:#888a8c"></span> Door</label>
   <label><input type="checkbox" id="lyr-IfcStair" checked><span class="sw" style="background:#cbb98c"></span> Stair</label>
   <label><input type="checkbox" id="lyr-IfcRailing" checked><span class="sw" style="background:#8a8a85"></span> Railing</label>
+  <label><input type="checkbox" id="lyr-IfcFurnishingElement" checked><span class="sw" style="background:#d9a866"></span> Furniture / Core</label>
+  <label><input type="checkbox" id="lyr-IfcSanitaryTerminal" checked><span class="sw" style="background:#f7f7f5"></span> Sanitary</label>
+  <label><input type="checkbox" id="lyr-IfcGeographicElement"><span class="sw" style="background:#4f7333"></span> Trees</label>
   <label><input type="checkbox" id="lyr-IfcSpace"><span class="sw" style="background:#2a4a8c"></span> Space (hidden)</label>
   <label><input type="checkbox" id="lyr-Ground"><span class="sw" style="background:#4d6633"></span> Ground</label>
 </div>
@@ -176,7 +179,29 @@ const TYPE_COLOURS = {
   IfcSpace:       { color: 0x2a4a8c, opacity: 0.10, visible: false },
   IfcOpeningElement: { color: 0xff0000, opacity: 0.0, visible: false },
   Ground:         { color: 0x4d6633, opacity: 1.0, visible: false },
+  // LOD 400 interior + site
+  IfcFurnishingElement: { color: 0xd9a866, opacity: 1.0 },  // primavera-ish default
+  IfcSanitaryTerminal:  { color: 0xf7f7f5, opacity: 1.0 },
+  IfcGeographicElement: { color: 0x4f7333, opacity: 0.85, visible: false },
 };
+
+// Per-name overrides — these are per-instance look tweaks for the
+// iconic Mies pieces, applied after default class colour.
+const NAME_COLOURS = [
+  { test: /Primavera Wood Core/i,         color: 0xd9a866 },
+  { test: /Wardrobe|Nightstand/i,         color: 0xc89856 },
+  { test: /Fireplace.*Hearth|Chimney/i,   color: 0x9a8b78 },
+  { test: /Kitchen Counter|Range Hood|Cooktop|Refrigerator/i,
+                                          color: 0xc5c8cc },
+  { test: /Brno|Barcelona/i,              color: 0x141414 },  // black leather
+  { test: /Dining Table/i,                color: 0xeae6dd },  // marble
+  { test: /Coffee Table/i,                color: 0x9bb8c8, opacity: 0.5 },
+  { test: /Bed \(/i,                      color: 0xe6dac1 },  // linen
+  { test: /Tree Trunk/i,                  color: 0x55402c, opacity: 1.0 },
+  { test: /Tree Canopy/i,                 color: 0x4f7333, opacity: 0.78 },
+  { test: /WC|Sink/i,                     color: 0xfafaf7 },
+  { test: /Shower/i,                      color: 0xa8c9d8, opacity: 0.45 },
+];
 const groups = {};
 function groupFor(typeName) {
   if (!groups[typeName]) {
@@ -249,8 +274,18 @@ ifcAPI.StreamAllMeshes(modelID, (flatMesh) => {
     bg.setAttribute('normal',   new THREE.BufferAttribute(normals, 3));
     bg.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
 
-    const colourSpec = TYPE_COLOURS[typeName] ||
-                       { color: 0xb0b8c0, opacity: 1.0 };
+    let colourSpec = TYPE_COLOURS[typeName] ||
+                     { color: 0xb0b8c0, opacity: 1.0 };
+    // Name-based overrides for iconic Mies pieces
+    for (const rule of NAME_COLOURS) {
+      if (rule.test.test(ifcName)) {
+        colourSpec = {
+          color: rule.color,
+          opacity: rule.opacity ?? colourSpec.opacity,
+        };
+        break;
+      }
+    }
     const mat = new THREE.MeshStandardMaterial({
       color: colourSpec.color,
       transparent: colourSpec.opacity < 1,
