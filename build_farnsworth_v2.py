@@ -185,7 +185,31 @@ def extrude_profile(f, body_ctx, profile, height, position=(0, 0, 0)):
 
 
 def box_repr(f, body_ctx, w, d, h, position=(0, 0, 0)):
-    return extrude_profile(f, body_ctx, rect_profile(f, w, d), h, position=position)
+    """Corner-anchored extruded rectangle: footprint goes from
+    `position` to `position + (w, d)`, extruded up by h.
+
+    IfcRectangleProfileDef is centered on its position; we offset the
+    profile placement by (w/2, d/2) so the element's local origin
+    coincides with the box's lower-X / lower-Y corner — which is what
+    the rest of this script consistently assumes.
+    """
+    px, py, pz = position
+    profile = rect_profile(f, w, d)
+    solid = f.create_entity(
+        "IfcExtrudedAreaSolid",
+        SweptArea=profile,
+        Position=AX3(f, loc=(px + w / 2.0, py + d / 2.0, pz)),
+        ExtrudedDirection=D(f, (0, 0, 1)),
+        Depth=float(h),
+    )
+    rep = f.create_entity(
+        "IfcShapeRepresentation",
+        ContextOfItems=body_ctx,
+        RepresentationIdentifier="Body",
+        RepresentationType="SweptSolid",
+        Items=[solid],
+    )
+    return f.create_entity("IfcProductDefinitionShape", Representations=[rep])
 
 
 def stair_flight_repr(f, body_ctx, n_risers, riser, tread, width):
@@ -782,13 +806,20 @@ def build():
     glass_x1 = long_xs[-1] - COL_DEPTH / 2.0
     glass_long = glass_x1 - glass_x0  # ≈ 19.92 m
 
-    # bay positions on long sides — 3 panels split by 4 jambs at column lines
+    # 4 jambs on long sides: 2 at outer edges (against column inner flanges)
+    # + 2 inner jambs centered on the middle columns.
+    long_jamb_xs = [
+        0.0,
+        (long_xs[1] - glass_x0) - FRAME / 2.0,
+        (long_xs[2] - glass_x0) - FRAME / 2.0,
+        glass_long - FRAME,
+    ]
     south_cw = make_curtain_wall_long(
         f, body, owner_history, storeys["Main Floor"], types,
         name="Curtain Wall — South",
         origin_local=(glass_x0, 0, 0),
         length=glass_long, height=GLASS_HEIGHT, thk=GLASS_THK,
-        bay_xs=[long_xs[i + 1] - long_xs[0] - COL_DEPTH for i in range(N_BAYS)],
+        jamb_xs=long_jamb_xs,
         rotation_z=0.0,
     )
     north_cw = make_curtain_wall_long(
@@ -796,7 +827,7 @@ def build():
         name="Curtain Wall — North",
         origin_local=(glass_x0, MAIN_WID - GLASS_THK, 0),
         length=glass_long, height=GLASS_HEIGHT, thk=GLASS_THK,
-        bay_xs=[long_xs[i + 1] - long_xs[0] - COL_DEPTH for i in range(N_BAYS)],
+        jamb_xs=long_jamb_xs,
         rotation_z=0.0,
     )
     west_cw = make_curtain_wall_short(
@@ -1039,8 +1070,9 @@ def _add_plate(f, body, owner_history, storey, type_plate, *,
 
 def make_curtain_wall_long(f, body, owner_history, storey, types, *,
                            name, origin_local, length, height, thk,
-                           bay_xs, rotation_z):
-    """Long-side curtain wall: 4 jambs at column lines, 3 plates between."""
+                           jamb_xs, rotation_z):
+    """Long-side curtain wall: jambs at given corner positions,
+    plates between adjacent jambs."""
     cw = ifcopenshell.api.root.create_entity(
         f, ifc_class="IfcCurtainWall", name=name, predefined_type="NOTDEFINED",
     )
@@ -1074,14 +1106,7 @@ def make_curtain_wall_long(f, body, owner_history, storey, types, *,
         size=(length, thk, FRAME),
     ))
 
-    # Jambs at column lines (4 vertical mullions)
-    jamb_xs = [0.0]
-    cum = 0.0
-    for bw in bay_xs:
-        cum += bw
-        jamb_xs.append(cum)
-    if jamb_xs[-1] > length:
-        jamb_xs[-1] = length
+    # Vertical jambs at given corner positions
     for i, jx in enumerate(jamb_xs):
         parts.append(_add_member(
             f, body, owner_history, storey, types["member_mullion"],
@@ -1091,11 +1116,13 @@ def make_curtain_wall_long(f, body, owner_history, storey, types, *,
             size=(FRAME, thk, height - 2 * FRAME),
         ))
 
-    # Glass plates (3 panels between jambs)
+    # Glass plates between adjacent jambs
     panels = []
     for i in range(len(jamb_xs) - 1):
         x0 = jamb_xs[i] + FRAME
         x1 = jamb_xs[i + 1]
+        if x1 <= x0:
+            continue
         panels.append(_add_plate(
             f, body, owner_history, storey, types["plate_glass"],
             name=f"{name} Glass Panel {i + 1}",

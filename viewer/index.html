@@ -164,12 +164,12 @@ setStatus('Loading model …', 'Extracting geometry …');
 // ----- Build typed groups -----
 const TYPE_COLOURS = {
   IfcSlab:        { color: 0xdcd2bf, opacity: 1.0 },
-  IfcRoof:        { color: 0x9c8b73, opacity: 1.0 },
-  IfcColumn:      { color: 0xfafaf7, opacity: 1.0 },
+  IfcRoof:        { color: 0xa89880, opacity: 1.0 },
+  IfcColumn:      { color: 0xf0f0ec, opacity: 1.0 },
   IfcCurtainWall: { color: 0xa8c9d8, opacity: 0.4 },
-  IfcMember:      { color: 0xb8bcc0, opacity: 1.0 },
-  IfcPlate:       { color: 0xa8c9d8, opacity: 0.35 },
-  IfcDoor:        { color: 0x888a8c, opacity: 0.85 },
+  IfcMember:      { color: 0xc8c8c4, opacity: 1.0 },
+  IfcPlate:       { color: 0x9bb8c8, opacity: 0.30 },
+  IfcDoor:        { color: 0x6a6c6e, opacity: 0.85 },
   IfcStair:       { color: 0xcbb98c, opacity: 1.0 },
   IfcStairFlight: { color: 0xcbb98c, opacity: 1.0 },
   IfcRailing:     { color: 0x8a8a85, opacity: 1.0 },
@@ -263,6 +263,20 @@ ifcAPI.StreamAllMeshes(modelID, (flatMesh) => {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
+    // Edge overlay so thin elements (mullions, columns, glass) read clearly
+    if (typeName !== 'Ground' && typeName !== 'IfcSpace') {
+      const edges = new THREE.EdgesGeometry(bg, 25);
+      const edgeLines = new THREE.LineSegments(
+        edges,
+        new THREE.LineBasicMaterial({
+          color: 0x0a0e14,
+          transparent: true,
+          opacity: 0.55,
+        })
+      );
+      mesh.add(edgeLines);
+    }
+
     // IFC matrix is column-major in flat array; three uses column-major too
     const m4 = new THREE.Matrix4();
     m4.fromArray(placed.flatTransformation);
@@ -300,14 +314,28 @@ if (bbox.isEmpty()) bbox.setFromObject(root);
 const size = bbox.getSize(new THREE.Vector3());
 const center = bbox.getCenter(new THREE.Vector3());
 controls.target.copy(center);
+
+// Distance that fits the building's longest extent into the viewport,
+// with a 35% margin so it doesn't touch the edges.
+const fovRad = camera.fov * Math.PI / 180;
 const maxDim = Math.max(size.x, size.y, size.z);
-const dist = maxDim * 1.6;
+const fitDist = (maxDim / 2) / Math.tan(fovRad / 2) * 1.35;
+
+// Architectural 3/4 view from south-east, eye-level slightly above slab.
+// Camera is far enough to fit the 23-m long pavilion, but close enough
+// that the 4.75-m height reads as a building, not a strip.
+const dirX =  0.7;
+const dirY =  0.45;
+const dirZ =  1.0;
+const dirLen = Math.hypot(dirX, dirY, dirZ);
+const camDist = Math.max(fitDist * 0.8, size.x * 1.0);
 camera.position.set(
-  center.x + dist * 0.85,
-  center.y + dist * 0.55,
-  center.z + dist * 1.10,
+  center.x + camDist * dirX / dirLen,
+  center.y + camDist * dirY / dirLen,
+  center.z + camDist * dirZ / dirLen,
 );
-camera.far = Math.max(camera.far, dist * 8);
+camera.far = Math.max(camera.far, camDist * 10);
+camera.near = 0.1;
 camera.updateProjectionMatrix();
 controls.update();
 
