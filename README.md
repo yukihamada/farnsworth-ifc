@@ -4,6 +4,8 @@ A production-grade IFC4 reference model of [**Farnsworth House**](https://en.wik
 
 ![Isometric render](farnsworth_house_v2.png)
 
+**🌐 Live 3D viewer:** [https://bim.house/viewer/bim?edit=1&token=bim_6a0047b2qck5horb](https://bim.house/viewer/bim?edit=1&token=bim_6a0047b2qck5horb)
+
 ## Why?
 
 This started as an exercise in producing an "IFC for a famous building." The first attempt (v1) was a valid IFC but, as any working ArchiCAD/Revit user would point out, it was a *dumb 3D model dressed up as BIM*: walls were not real walls, columns were boxes, no openings, no types, no curtain walls, no grid, no quantities. Calling it "perfect" was overselling.
