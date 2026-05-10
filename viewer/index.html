@@ -296,11 +296,13 @@ ifcAPI.StreamAllMeshes(modelID, (flatMesh) => {
 
 ifcAPI.CloseModel(modelID);
 
-// Convert Z-up (IFC) to Y-up (three)
+// web-ifc's flatTransformation already maps IFC Z (vertical) to three's Y,
+// so we render directly without an extra rotation.
 const root = new THREE.Group();
 for (const k of Object.keys(groups)) root.add(groups[k]);
-root.rotation.x = -Math.PI / 2;
 scene.add(root);
+window.__root = root;
+window.__groups = groups;
 
 console.log(`Rendered ${count} meshes, ${totalVerts} vertices total`);
 
