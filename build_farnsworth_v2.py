@@ -637,6 +637,13 @@ def build():
         ("Brushed Stainless 304", "steel"),
         ("Foliage", "other"),
         ("Tree Trunk Bark", "wood"),
+        ("Shantung Silk (cream)", "fabric"),
+        ("Brass", "metal"),
+        ("Fox River Water", "water"),
+        ("Crushed Limestone Gravel", "stone"),
+        ("Bluestone Path", "stone"),
+        ("Travertine Floor Finish", "stone"),
+        ("Plaster Ceiling", "other"),
     ]:
         materials[n] = ifcopenshell.api.material.add_material(f, name=n, category=cat)
 
@@ -659,6 +666,13 @@ def build():
         "Brushed Stainless 304": ((0.78, 0.79, 0.81), 0.0),
         "Foliage": ((0.30, 0.50, 0.25), 0.2),
         "Tree Trunk Bark": ((0.36, 0.28, 0.20), 0.0),
+        "Shantung Silk (cream)": ((0.93, 0.88, 0.76), 0.25),
+        "Brass": ((0.78, 0.62, 0.30), 0.0),
+        "Fox River Water": ((0.30, 0.45, 0.55), 0.4),
+        "Crushed Limestone Gravel": ((0.78, 0.74, 0.66), 0.0),
+        "Bluestone Path": ((0.55, 0.58, 0.60), 0.0),
+        "Travertine Floor Finish": ((0.86, 0.81, 0.72), 0.0),
+        "Plaster Ceiling": ((0.96, 0.95, 0.92), 0.0),
     }
     for n, (rgb, t) in style_map.items():
         attach_style(f, materials[n], make_style(f, n, rgb, t), body)
@@ -717,7 +731,21 @@ def build():
     types["sani_toilet"] = make_type("IfcSanitaryTerminalType", "WC-WALL-HUNG", "TOILETPAN")
     types["sani_sink"] = make_type("IfcSanitaryTerminalType", "WALL-HUNG-SINK", "WASHHANDBASIN")
     types["sani_shower"] = make_type("IfcSanitaryTerminalType", "SHOWER-STALL", "SHOWER")
+    types["sani_kitchen_sink"] = make_type("IfcSanitaryTerminalType", "KITCHEN-SINK", "SINK")
     types["geo_tree"] = make_type("IfcGeographicElementType", "TREE-DECIDUOUS", None)
+    # New LOD-400/500 types
+    types["covering_floor"] = make_type("IfcCoveringType", "TRAVERTINE-FLOORING-50", "FLOORING")
+    types["covering_ceiling"] = make_type("IfcCoveringType", "PLASTER-CEILING-15", "CEILING")
+    types["covering_curtain"] = make_type("IfcCoveringType", "SHANTUNG-CURTAIN", "MOLDING")
+    types["light_floor"] = make_type("IfcLightFixtureType", "FLOOR-LAMP-MIES", "DIRECTIONSOURCE")
+    types["light_table"] = make_type("IfcLightFixtureType", "TABLE-LAMP", "POINTSOURCE")
+    types["light_ceiling"] = make_type("IfcLightFixtureType", "CEILING-RECESSED", "DIRECTIONSOURCE")
+    types["furn_sideboard"] = make_type("IfcFurnishingElementType", "MIES-SIDEBOARD", None)
+    types["furn_bookshelf"] = make_type("IfcFurnishingElementType", "BOOKSHELF-PRIMAVERA", None)
+    types["geo_water"] = make_type("IfcGeographicElementType", "WATER-BODY", None)
+    types["geo_path"] = make_type("IfcGeographicElementType", "STONE-PATH", None)
+    types["geo_drive"] = make_type("IfcGeographicElementType", "GRAVEL-DRIVE", None)
+    types["window_stop"] = make_type("IfcMemberType", "WINDOW-STOP-ANGLE", "MULLION")
 
     # Type → material associations
     assign_layer_set(
@@ -762,7 +790,20 @@ def build():
     assign_material_simple(f, owner_history, [types["sani_toilet"]], materials["Vitreous Ceramic"])
     assign_material_simple(f, owner_history, [types["sani_sink"]], materials["Vitreous Ceramic"])
     assign_material_simple(f, owner_history, [types["sani_shower"]], materials["Float Glass 25mm"])
+    assign_material_simple(f, owner_history, [types["sani_kitchen_sink"]], materials["Brushed Stainless 304"])
     assign_material_simple(f, owner_history, [types["geo_tree"]], materials["Foliage"])
+    assign_material_simple(f, owner_history, [types["covering_floor"]], materials["Travertine Floor Finish"])
+    assign_material_simple(f, owner_history, [types["covering_ceiling"]], materials["Plaster Ceiling"])
+    assign_material_simple(f, owner_history, [types["covering_curtain"]], materials["Shantung Silk (cream)"])
+    assign_material_simple(f, owner_history, [types["light_floor"]], materials["Brass"])
+    assign_material_simple(f, owner_history, [types["light_table"]], materials["Brass"])
+    assign_material_simple(f, owner_history, [types["light_ceiling"]], materials["Stainless Steel"])
+    assign_material_simple(f, owner_history, [types["furn_sideboard"]], materials["Primavera Wood Veneer"])
+    assign_material_simple(f, owner_history, [types["furn_bookshelf"]], materials["Primavera Wood Veneer"])
+    assign_material_simple(f, owner_history, [types["geo_water"]], materials["Fox River Water"])
+    assign_material_simple(f, owner_history, [types["geo_path"]], materials["Bluestone Path"])
+    assign_material_simple(f, owner_history, [types["geo_drive"]], materials["Crushed Limestone Gravel"])
+    assign_material_simple(f, owner_history, [types["window_stop"]], materials["Stainless Steel"])
 
     # ---- Structural grid (Mies's iconic 4×2 grid) ----
     long_xs = [COL_CANTI + i * COL_BAY for i in range(4)]      # 1.68, 8.39, 15.10, 21.81
@@ -923,9 +964,33 @@ def build():
     interior_elements += _make_interior(
         f, body, owner_history, storeys["Main Floor"], types,
     )
+    # Floor & ceiling finishes
+    interior_elements += _make_finishes(
+        f, body, owner_history, storeys, types,
+    )
+    # Lighting
+    interior_elements += _make_lighting(
+        f, body, owner_history, storeys["Main Floor"], types,
+    )
+    # Sideboard, bookshelf, console
+    interior_elements += _make_more_furniture(
+        f, body, owner_history, storeys["Main Floor"], types,
+    )
+    # Shantung silk curtains in west bay
+    interior_elements += _make_curtains(
+        f, body, owner_history, storeys["Main Floor"], types,
+        glass_x0=glass_x0, glass_long=glass_long,
+    )
+    # Steel angle stops at column inner faces (LOD 500 hardware)
+    interior_elements += _make_window_stops(
+        f, body, owner_history, storeys["Main Floor"], types, long_xs,
+    )
 
-    # ---- Site context: trees ----
+    # ---- Site context: trees + landscape ----
     interior_elements += _make_trees(
+        f, body, owner_history, storeys["Grade"], types,
+    )
+    interior_elements += _make_landscape(
         f, body, owner_history, storeys["Grade"], types,
     )
 
@@ -1657,7 +1722,297 @@ def _make_interior(f, body, owner_history, storey_main, types):
         pset_name="Pset_SanitaryTerminalTypeShower",
         pset_props={"Reference": "Glass shower stall"},
     ))
+    # Kitchen sink (drop-in stainless basin in counter)
+    items.append(S(
+        name="Kitchen Sink (stainless double basin)",
+        predefined_type="SINK",
+        type_relation=types["sani_kitchen_sink"],
+        location=(5.50, 5.65, 0.85),
+        size=(0.85, 0.50, 0.20),
+        pset_name="Pset_SanitaryTerminalTypeSink",
+        pset_props={"Reference": "Stainless steel double basin, undermount"},
+    ))
 
+    return items
+
+
+def _make_finishes(f, body, owner_history, storeys, types):
+    """Travertine floor finish + plaster ceiling + terrace finish."""
+    items = []
+    # Main floor travertine (50mm above slab top, so visible above the slab)
+    main = _make_simple_box(
+        f, body, owner_history, storeys["Main Floor"],
+        ifc_class="IfcCovering",
+        name="Travertine Floor Finish (main)",
+        predefined_type="FLOORING",
+        type_relation=types["covering_floor"],
+        location=(0.0, 0.0, 0.0),
+        size=(MAIN_LEN, MAIN_WID, 0.005),  # 5mm visible bump
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Travertine pavers 1.524 m grid"},
+    )
+    items.append(main)
+    # Terrace travertine
+    items.append(_make_simple_box(
+        f, body, owner_history, storeys["Terrace Level"],
+        ifc_class="IfcCovering",
+        name="Travertine Floor Finish (terrace)",
+        predefined_type="FLOORING",
+        type_relation=types["covering_floor"],
+        location=(TERRACE_X0, TERRACE_Y0, 0.0),
+        size=(TERRACE_LEN, TERRACE_WID, 0.005),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Travertine terrace pavers"},
+    ))
+    # Plaster ceiling under roof
+    items.append(_make_simple_box(
+        f, body, owner_history, storeys["Roof"],
+        ifc_class="IfcCovering",
+        name="Plaster Ceiling",
+        predefined_type="CEILING",
+        type_relation=types["covering_ceiling"],
+        location=(0.0, 0.0, -0.015),
+        size=(MAIN_LEN, MAIN_WID, 0.015),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "White plaster, 15mm"},
+    ))
+    return items
+
+
+def _make_lighting(f, body, owner_history, storey_main, types):
+    """3 light fixtures: floor lamp, 2 table lamps, plus 2 ceiling lights."""
+    items = []
+    L = lambda **kw: _make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcLightFixture", **kw,
+    )
+    # Floor lamp next to Barcelona chairs
+    items.append(L(
+        name="Floor Lamp (Mies design)",
+        predefined_type="DIRECTIONSOURCE",
+        type_relation=types["light_floor"],
+        location=(15.20, 3.30, 0.0),
+        size=(0.20, 0.20, 1.65),
+        pset_name="Pset_LightFixtureTypeCommon",
+        pset_props={"Reference": "Brass uplighter"},
+    ))
+    # Table lamp on sideboard 1
+    items.append(L(
+        name="Table Lamp (sideboard E)",
+        predefined_type="POINTSOURCE",
+        type_relation=types["light_table"],
+        location=(20.50, 7.10, 0.85),
+        size=(0.30, 0.30, 0.55),
+        pset_name="Pset_LightFixtureTypeCommon",
+        pset_props={"Reference": "Brass + linen shade"},
+    ))
+    # Table lamp on dining sideboard
+    items.append(L(
+        name="Table Lamp (dining sideboard)",
+        predefined_type="POINTSOURCE",
+        type_relation=types["light_table"],
+        location=(13.10, 7.10, 0.85),
+        size=(0.30, 0.30, 0.55),
+        pset_name="Pset_LightFixtureTypeCommon",
+        pset_props={"Reference": "Brass + linen shade"},
+    ))
+    # Two recessed ceiling lights
+    for i, x in enumerate([7.0, 16.0]):
+        items.append(L(
+            name=f"Ceiling Recessed Downlight {i + 1}",
+            predefined_type="DIRECTIONSOURCE",
+            type_relation=types["light_ceiling"],
+            location=(x - 0.15, 4.30, 2.85),
+            size=(0.30, 0.30, 0.05),
+            pset_name="Pset_LightFixtureTypeCommon",
+            pset_props={"Reference": "100mm recessed downlight"},
+        ))
+    return items
+
+
+def _make_more_furniture(f, body, owner_history, storey_main, types):
+    """Sideboards, bookshelf, console — fills the empty east wall."""
+    items = []
+    F = lambda **kw: _make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcFurnishingElement", **kw,
+    )
+    # East-wall low credenza/sideboard
+    items.append(F(
+        name="Sideboard (Mies, primavera)",
+        predefined_type=None,
+        type_relation=types["furn_sideboard"],
+        location=(19.50, 6.80, 0.0),
+        size=(2.00, 0.50, 0.85),
+        pset_name="Pset_FurnitureTypeCommon",
+        pset_props={"Reference": "Primavera credenza, brass legs"},
+    ))
+    # Dining-zone sideboard
+    items.append(F(
+        name="Sideboard (dining)",
+        predefined_type=None,
+        type_relation=types["furn_sideboard"],
+        location=(12.20, 6.80, 0.0),
+        size=(1.80, 0.50, 0.85),
+        pset_name="Pset_FurnitureTypeCommon",
+        pset_props={"Reference": "Primavera credenza for dining service"},
+    ))
+    # Bookshelf along east end
+    items.append(F(
+        name="Bookshelf (primavera, full height)",
+        predefined_type=None,
+        type_relation=types["furn_bookshelf"],
+        location=(20.50, 1.50, 0.0),
+        size=(1.20, 0.40, 1.80),
+        pset_name="Pset_FurnitureTypeCommon",
+        pset_props={"Reference": "Built-in primavera bookshelf"},
+    ))
+    return items
+
+
+def _make_curtains(f, body, owner_history, storey_main, types, *,
+                   glass_x0, glass_long):
+    """Two Shantung silk curtain panels — drawn open at panel ends."""
+    items = []
+    # Curtain 1: covers west portion of south bay 1
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcCovering",
+        name="Shantung Curtain — South West",
+        predefined_type="MOLDING",
+        type_relation=types["covering_curtain"],
+        location=(glass_x0 + 0.40, 0.10, 0.0),
+        size=(0.60, 0.05, 2.85),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Hand-woven Shantung silk, cream"},
+    ))
+    # Curtain 2: covers west portion of north bay 1
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcCovering",
+        name="Shantung Curtain — North West",
+        predefined_type="MOLDING",
+        type_relation=types["covering_curtain"],
+        location=(glass_x0 + 0.40, MAIN_WID - 0.15, 0.0),
+        size=(0.60, 0.05, 2.85),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Hand-woven Shantung silk, cream"},
+    ))
+    # Curtain track (long) on south
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcCovering",
+        name="Curtain Track — South",
+        predefined_type="MOLDING",
+        type_relation=types["covering_curtain"],
+        location=(glass_x0, 0.04, 2.85),
+        size=(glass_long, 0.04, 0.05),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Brass curtain track"},
+    ))
+    # Curtain track (long) on north
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_main,
+        ifc_class="IfcCovering",
+        name="Curtain Track — North",
+        predefined_type="MOLDING",
+        type_relation=types["covering_curtain"],
+        location=(glass_x0, MAIN_WID - 0.08, 2.85),
+        size=(glass_long, 0.04, 0.05),
+        pset_name="Pset_CoveringCommon",
+        pset_props={"Reference": "Brass curtain track"},
+    ))
+    return items
+
+
+def _make_window_stops(f, body, owner_history, storey_main, types, long_xs):
+    """Steel angle stops at column inner faces — LOD 500 hardware that
+    actually holds the curtain wall glass to the columns."""
+    items = []
+    # Two stops per column (south face + north face), each is a thin
+    # vertical angle running the full glass height.
+    for i, cx in enumerate(long_xs):
+        for tag, cy_inner in (
+            ("S", -0.0),
+            ("N", MAIN_WID - 0.04),
+        ):
+            items.append(_make_simple_box(
+                f, body, owner_history, storey_main,
+                ifc_class="IfcMember",
+                name=f"Window Stop {tag}{i + 1}",
+                predefined_type="MULLION",
+                type_relation=types["window_stop"],
+                location=(cx - 0.04, cy_inner, 0.05),
+                size=(0.08, 0.04, 2.80),
+                pset_name="Pset_MemberCommon",
+                pset_props={"Reference": "SS angle 50×50, glass clamp"},
+            ))
+    return items
+
+
+def _make_landscape(f, body, owner_history, storey_grade, types):
+    """Site context: Fox River, gravel drive, bluestone path, big maple."""
+    items = []
+    # Fox River — wide water body to the north (positive Y).
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_grade,
+        ifc_class="IfcGeographicElement",
+        name="Fox River",
+        predefined_type=None,
+        type_relation=types["geo_water"],
+        location=(-50.0, 24.0, -0.50),
+        size=(120.0, 35.0, 0.40),
+        pset_name="Pset_SiteCommon",
+        pset_props={"Reference": "Fox River — flood plain water surface"},
+    ))
+    # Gravel driveway approaching from the south
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_grade,
+        ifc_class="IfcGeographicElement",
+        name="Gravel Driveway",
+        predefined_type=None,
+        type_relation=types["geo_drive"],
+        location=(-2.0, -25.0, 0.0),
+        size=(4.0, 18.0, 0.05),
+        pset_name="Pset_SiteCommon",
+        pset_props={"Reference": "Crushed limestone driveway, 4 m wide"},
+    ))
+    # Bluestone path from drive to terrace stair
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_grade,
+        ifc_class="IfcGeographicElement",
+        name="Bluestone Path (drive → terrace)",
+        predefined_type=None,
+        type_relation=types["geo_path"],
+        location=(-22.0, -7.0, 0.0),
+        size=(3.0, 12.0, 0.05),
+        pset_name="Pset_SiteCommon",
+        pset_props={"Reference": "Bluestone path, 1.2 m wide"},
+    ))
+    # The big black maple Mies designed around (the "Black Maple")
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_grade,
+        ifc_class="IfcGeographicElement",
+        name="Black Maple (specimen)",
+        predefined_type=None,
+        type_relation=types["geo_tree"],
+        location=(-2.0, 16.0, 0.0),
+        size=(0.80, 0.80, 12.0),
+        pset_name="Pset_SiteCommon",
+        pset_props={"Reference": "Acer nigrum — the famous specimen"},
+    ))
+    # Black maple canopy — wide
+    items.append(_make_simple_box(
+        f, body, owner_history, storey_grade,
+        ifc_class="IfcGeographicElement",
+        name="Black Maple Canopy",
+        predefined_type=None,
+        type_relation=types["geo_tree"],
+        location=(-7.0, 11.0, 8.0),
+        size=(11.0, 11.0, 7.0),
+        pset_name="Pset_SiteCommon",
+        pset_props={"Reference": "Acer nigrum canopy ~11 m diameter"},
+    ))
     return items
 
 
