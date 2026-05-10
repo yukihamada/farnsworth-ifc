@@ -8,7 +8,7 @@ A production-grade IFC4 reference model of [**Farnsworth House**](https://en.wik
 
 Renders the full v2 IFC4 (IfcCurtainWall + IfcMember + IfcPlate + IfcStairFlight + IfcGrid + IfcSpace) using web-ifc WASM in the browser. 45 meshes, 2,452 vertices.
 
-> bim.house's client-side IFC uploader is currently broken (its import map is missing `three/examples/jsm/utils/BufferGeometryUtils`), so the full IFC can't be loaded there. For a simplified box-primitive view in bim.house, see [/viewer/bim?edit=1&token=bim_6a0047b2qck5horb](https://bim.house/viewer/bim?edit=1&token=bim_6a0047b2qck5horb) — but it will not show curtain wall mullions or stair flight geometry properly.
+> bim.house's client-side IFC uploader is currently broken (its import map is missing `three/examples/jsm/utils/BufferGeometryUtils`), so the full IFC can't be loaded there. A flattened 110-box version of v1.2.0 is uploaded to [bim.house — token bim_6a00662b24f97ygo](https://bim.house/viewer/bim?edit=1&token=bim_6a00662b24f97ygo) (no curtain-wall semantics, no light fixtures, no IfcGrid — but the building, furniture, river and trees all render).
 
 ## Why?
 
