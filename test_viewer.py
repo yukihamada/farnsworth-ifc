@@ -7,7 +7,9 @@ import time
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:8765/index.html"
+URL = os.environ.get(
+    "VIEWER_URL", "https://yukihamada.github.io/farnsworth-ifc/viewer/"
+)
 OUT = os.path.join(os.path.dirname(__file__), "viewer", "preview.png")
 
 
